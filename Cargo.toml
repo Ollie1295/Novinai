@@ -1,0 +1,97 @@
+[package]
+name = "insane-ai-security"
+version = "0.1.0"
+edition = "2021"
+authors = ["AI Security Team"]
+description = "Next-generation AI security system with predictive threat modeling"
+
+[dependencies]
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+anyhow = "1.0.89"
+thiserror = "1.0.64"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+chrono = { version = "0.4.38", features = ["serde"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+async-trait = "0.1.83"
+ndarray = { version = "0.15", optional = true }
+candle-core = { version = "0.3", optional = true }
+candle-nn = { version = "0.3", optional = true }
+candle-transformers = { version = "0.3", optional = true }
+tch = { version = "0.14", optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"], optional = true }
+redis = { version = "0.24", features = ["tokio-comp"], optional = true }
+kafka = { version = "0.9", optional = true }
+prometheus = { version = "0.13", optional = true }
+dashmap = { version = "5.5", optional = true }
+rayon = { version = "1.8", optional = true }
+crossbeam = { version = "0.8", optional = true }
+parking_lot = "0.12"
+rand = "0.8"
+ordered-float = { version = "4.2", features = ["serde"], optional = true }
+nalgebra = { version = "0.32", optional = true }
+statrs = { version = "0.16", optional = true }
+smartcore = { version = "0.3", optional = true }
+linfa = { version = "0.7", optional = true }
+linfa-clustering = { version = "0.7", optional = true }
+linfa-bayes = { version = "0.7", optional = true }
+petgraph = { version = "0.6", optional = true }
+config = { version = "0.14", optional = true }
+clap = { version = "4.4", features = ["derive"], optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.4"
+mockall = "0.12"
+
+[features]
+default = ["core"]
+core = []
+ml = [
+    "ndarray",
+    "candle-core",
+    "candle-nn",
+    "candle-transformers",
+    "tch",
+    "linfa",
+    "linfa-clustering",
+    "linfa-bayes",
+    "smartcore",
+    "nalgebra",
+    "statrs",
+    "ordered-float",
+    "rayon",
+]
+net = ["reqwest", "redis", "kafka", "sqlx"]
+monitoring = ["prometheus"]
+graph = ["petgraph"]
+extras = ["dashmap", "crossbeam", "config", "clap"]
+
+[[bin]]
+name = "security-daemon"
+path = "src/bin/daemon.rs"
+
+[[bin]]
+name = "test-person-detection"
+path = "src/bin/test_person_detection.rs"
+
+[[bin]]
+name = "context-rich-test"
+path = "src/bin/context_rich_test.rs"
+
+[[bin]]
+name = "delivery-scenario"
+path = "src/bin/delivery_scenario.rs"
+
+[[bin]]
+name = "enhanced-ai-test"
+path = "src/bin/enhanced_ai_test.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

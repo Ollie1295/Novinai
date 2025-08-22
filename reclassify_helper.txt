@@ -1,0 +1,19 @@
+
+    fn reclassify_sequence_static(sequence: &[EventType], confidence_evolution: &[f64], current_classification: &EventClassification) -> EventClassification {
+        use EventType::*;
+        
+        // Delivery pattern: Vehicle -> Person -> Door -> Package
+        if sequence.len() >= 2 && 
+           matches!(sequence[0], VehicleApproach) &&
+           sequence.iter().any(|t| matches!(t, PersonDetected)) {
+            return EventClassification::DeliverySequence;
+        }
+        
+        // Known person movement pattern
+        if sequence.iter().all(|t| matches!(t, PersonDetected)) &&
+           confidence_evolution.iter().all(|&c| c > 0.7) {
+            return EventClassification::KnownPersonMovement;
+        }
+        
+        current_classification.clone()
+    }

@@ -1,0 +1,32 @@
+--- a/src/core/mod.rs
++++ b/src/core/mod.rs
+@@ -561,6 +561,26 @@
+     pub self_critique: Vec<SelfCritique>,
+ }
+ 
++/// Meta-cognitive monitoring for psychological profiling
++#[derive(Debug, Clone, Serialize, Deserialize, Default)]
++pub struct MetaCognitiveMonitoring {
++    pub reasoning_confidence: f64,
++    pub bias_detection: Vec<CognitiveBias>,
++    pub uncertainty_sources: Vec<UncertaintySource>,
++    pub reasoning_quality: f64,
++    pub self_critique: Vec<SelfCritique>,
++    pub cognitive_load: f64,
++    pub attention_focus: f64,
++}
++
++/// Hierarchical attention mechanisms for threat analysis
++#[derive(Debug, Clone, Serialize, Deserialize, Default)]
++pub struct HierarchicalAttention {
++    pub spatial_attention: SpatialMap,
++    pub temporal_attention: TemporalWeights,
++    pub feature_attention: FeatureWeights,
++    pub global_attention: f64,
++    pub attention_hierarchy: Vec<String>,
++    pub focus_intensity: f64,
++}
++
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ pub enum CognitiveBias {
+     ConfirmationBias,
