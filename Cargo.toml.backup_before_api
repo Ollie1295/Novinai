@@ -1,0 +1,108 @@
+[package]
+name = "insane-ai-security"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["json"] }
+anyhow = "1.0"
+thiserror = "1.0"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+ndarray = "0.15"
+
+[[bin]]
+name = "security-daemon"
+path = "src/bin/daemon.rs"
+
+[[bin]]
+name = "test-person-detection"
+path = "src/bin/test_person_detection.rs"
+
+[[bin]]
+name = "context-rich-test"
+path = "src/bin/context_rich_test.rs"
+
+[[bin]]
+name = "delivery-scenario"
+path = "src/bin/delivery_scenario.rs"
+
+[[bin]]
+name = "enhanced-ai-test"
+path = "src/bin/enhanced_ai_test.rs"
+
+[[bin]]
+name = "pipeline_daemon"
+path = "src/bin/pipeline_daemon.rs"
+
+[[bin]]
+name = "smart-delivery-test"
+path = "src/bin/smart_delivery_test.rs"
+
+[[bin]]
+name = "evening-delivery-test"
+path = "src/bin/evening_delivery_test.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[[bin]]
+name = "simple-evening-test"
+path = "src/bin/simple_evening_test.rs"
+env_logger = "0.11"
+
+[[bin]]
+name = "config_demo"
+path = "src/bin/config_demo.rs"
+
+[[bin]]
+name = "thinking_ai_demo"
+path = "src/bin/thinking_ai_demo.rs"
+
+[[bin]]
+name = "thinking_ai_edge_cases"
+path = "src/bin/thinking_ai_edge_cases.rs"
+
+[[bin]]
+name = "test_2am_unknown_person"
+path = "src/bin/test_2am_unknown_person.rs"
+
+[[bin]]
+name = "test_2am_unknown_noknock"
+path = "src/bin/test_2am_unknown_noknock.rs"
+
+[[bin]]
+name = "everyday_life_scenarios"
+path = "src/bin/everyday_life_scenarios.rs"
+
+[[bin]]
+name = "test_family_kids_logic"
+path = "src/bin/test_family_kids_logic.rs"
+
+[[bin]]
+name = "test_edge_cases"
+path = "src/bin/test_edge_cases.rs"
+
+[[bin]]
+name = "vigorous_ai_stress_tests"
+path = "src/bin/vigorous_ai_stress_tests.rs"
+
+[[bin]]
+name = "wait_decision_showcase"
+path = "src/bin/wait_decision_showcase.rs"
+
+[[bin]]
+name = "precise_wait_test"
+path = "src/bin/precise_wait_test.rs"
+
+[[bin]]
+name = "alert_severity_test"
+path = "src/bin/alert_severity_test.rs"

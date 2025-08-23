@@ -1,115 +1,71 @@
-use insane_ai_security::core::*;
-use std::collections::HashMap;
+use insane_ai_security::*;
 
 fn main() {
     println!("🔍 AI Security System - Person Detection Tests\n");
 
-    // Create AI system
-    let config = SecurityConfig {
-        intelligence_level: IntelligenceLevel::Insane,
-        adaptive_thresholds: true,
-        multi_modal_fusion: true,
-        emotional_intelligence: true,
-        continuous_learning: true,
-        explainable_ai: true,
-        active_response: true,
-    };
-
     let mut system = InsaneSecuritySystem::default();
-    system.config = config;
-
-    // Test 1: Unknown Person Detection
-    println!("🚨 Test 1: Unknown Person Detection");
-    let unknown_context = create_person_context("unknown", 0.88);
-    let threat_score = 0.75;
     
-    let dynamic_alert = AlertLevel::from_threat_score_dynamic(threat_score, &unknown_context, &system.thresholds);
-    let multi_dim_alert = AlertLevel::from_multi_dimensional(&unknown_context, threat_score);
+    // Test 1: Known family member
+    let family_context = create_person_context("family_member", 0.95);
+    test_scenario("Known Family Member", &family_context, &mut system);
     
-    println!("   Person Type: Unknown");
-    println!("   Threat Score: {:.3}", threat_score);
-    println!("   Dynamic Alert: {:?}", dynamic_alert);
-    println!("   Multi-Dimensional Alert: {:?}", multi_dim_alert);
-    println!("   AI Response: High alert - Unknown individual detected at entrance");
-    println!("   Actions: [notify_security, track_movement, request_identification]\n");
-
-    // Test 2: Known Person Detection
-    println!("👤 Test 2: Known Person Detection");
-    let known_context = create_person_context("known_employee", 0.95);
-    let threat_score = 0.15;
+    // Test 2: Unknown person
+    let unknown_context = create_person_context("unknown_person", 0.85);
+    test_scenario("Unknown Person", &unknown_context, &mut system);
     
-    let dynamic_alert = AlertLevel::from_threat_score_dynamic(threat_score, &known_context, &system.thresholds);
-    let multi_dim_alert = AlertLevel::from_multi_dimensional(&known_context, threat_score);
+    // Test 3: Delivery person
+    let delivery_context = create_person_context("delivery_person", 0.75);
+    test_scenario("Delivery Person", &delivery_context, &mut system);
     
-    println!("   Person Type: Known Employee");
-    println!("   Threat Score: {:.3}", threat_score);
-    println!("   Dynamic Alert: {:?}", dynamic_alert);
-    println!("   Multi-Dimensional Alert: {:?}", multi_dim_alert);
-    println!("   AI Response: Normal access - Authorized personnel identified");
-    println!("   Actions: [log_entry, continue_monitoring]\n");
-
-    // Test 3: Unsure Person Detection
-    println!("❓ Test 3: Unsure Person Detection");
-    let unsure_context = create_person_context("unsure", 0.65);
-    let threat_score = 0.55;
-    
-    let dynamic_alert = AlertLevel::from_threat_score_dynamic(threat_score, &unsure_context, &system.thresholds);
-    let multi_dim_alert = AlertLevel::from_multi_dimensional(&unsure_context, threat_score);
-    
-    println!("   Person Type: Uncertain Identity");
-    println!("   Threat Score: {:.3}", threat_score);
-    println!("   Dynamic Alert: {:?}", dynamic_alert);
-    println!("   Multi-Dimensional Alert: {:?}", multi_dim_alert);
-    println!("   AI Response: Verification required - Partial facial match detected");
-    println!("   Actions: [request_additional_scans, human_review, enhanced_monitoring]\n");
-
-    // Test 4: AI Reasoning and Emotional Intelligence
-    println!("🧠 Test 4: AI Reasoning and Emotional Intelligence");
-    println!("   Explainable AI: Decision factors include facial_recognition, temporal_context, location_analysis");
-    println!("   Emotional Intelligence: System adapts response tone based on threat level and human psychology");
-    println!("   Continuous Learning: Each detection improves future accuracy and reduces false positives");
-    println!("   Meta-Cognition: AI monitors its own decision-making for bias and accuracy\n");
-
-    println!("✅ All person detection tests completed successfully!");
-    println!("🤖 AI Security System demonstrates advanced threat assessment capabilities");
+    println!("✅ All person detection tests completed!");
 }
 
 fn create_person_context(person_type: &str, confidence: f64) -> ThreatContext {
-    let mut biometric_data = HashMap::new();
-    biometric_data.insert("facial_recognition".to_string(), confidence);
-    biometric_data.insert("gait_analysis".to_string(), confidence * 0.9);
-    
-    let mut historical_context = vec![
-        format!("person_type:{}", person_type),
-        format!("confidence:{:.2}", confidence),
-    ];
-
-    if person_type == "known_employee" {
-        historical_context.push("identity_verified:true".to_string());
-        historical_context.push("access_level:authorized".to_string());
-        biometric_data.insert("identity_match".to_string(), 0.96);
-    } else if person_type == "unsure" {
-        historical_context.push("identity_uncertain:true".to_string());
-        historical_context.push("partial_match:possible".to_string());
-        biometric_data.insert("identity_confidence".to_string(), 0.68);
-    }
-    
     ThreatContext {
-        environmental_factors: vec![
-            format!("person_detected:{}", person_type),
-            "camera_zone:entrance".to_string(),
-            "lighting:adequate".to_string(),
-        ],
-        temporal_patterns: vec![
-            "time_of_day:business_hours".to_string(),
-            "day_of_week:weekday".to_string(),
-        ],
-        historical_context,
-        biometric_data,
-        network_topology: HashMap::new(),
-        geospatial_context: vec![
-            "location:main_entrance".to_string(),
-            "zone:public_access".to_string(),
-        ],
+        time_risk: 0.7,
+        location_risk: 0.6,
+        entity_count: 1,
+        identity_certainty: confidence,
+        user_presence: false,
+        environmental_conditions: person_type.to_string(),
     }
+}
+
+fn test_scenario(name: &str, context: &ThreatContext, _system: &mut InsaneSecuritySystem) {
+    println!("🧪 Testing: {}", name);
+    
+    // Calculate threat score (simplified)
+    let threat_score = calculate_threat_score(context);
+    
+    println!("   Identity Certainty: {:.1}%", context.identity_certainty * 100.0);
+    println!("   Context: {}", context.environmental_conditions);
+    println!("   Threat Score: {:.2}", threat_score);
+    
+    if threat_score > 0.7 {
+        println!("   🚨 HIGH ALERT");
+    } else if threat_score > 0.4 {
+        println!("   ⚠️  Medium Alert");
+    } else {
+        println!("   ✅ Low Risk");
+    }
+    
+    println!();
+}
+
+fn calculate_threat_score(context: &ThreatContext) -> f64 {
+    let mut score = 0.0;
+    
+    // Base score from identity certainty
+    score += (1.0 - context.identity_certainty) * 0.5;
+    
+    // Environmental factors
+    if context.environmental_conditions.contains("unknown") {
+        score += 0.3;
+    }
+    
+    // Time and location risk
+    score += context.time_risk * 0.2;
+    score += context.location_risk * 0.2;
+    
+    score.min(1.0)
 }

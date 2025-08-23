@@ -1,0 +1,1 @@
+// Temporal prediction module placeholder

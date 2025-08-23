@@ -1,15 +1,22 @@
-# Rust build artifacts
+# Rust
 /target/
+**/*.rs.bk
+*.pdb
 Cargo.lock
 
-# IDE files
+# Backup files
+*.backup
+*.bak*
+*.old
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS generated files
+# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -18,40 +25,56 @@ Cargo.lock
 ehthumbs.db
 Thumbs.db
 
-# Temporary files
-*.tmp
-*.temp
+# Logs
 *.log
+rustc_err.txt
 
-# Python cache
+# Local env files
+.env
+.env.local
+
+# Build artifacts
+*.exe
+*.out
+*.app
+
+# Large binary files
+*.pt
+yolov8n.pt
+
+# Generated files
+adaptive_time_model
+ai_behavior_test
+ai_logic_analysis
+bayesian_decision_engine
+behavioral_stacking_fix
+calibration_fix
+compare_2am_systems
+context_absence
+entry_intelligence
+final_comparison
+identity_ledger
+observability_demo
+quick_scenario_test
+test_2am_backyard
+test_2am_followups
+test_2am_simple
+test_suppression_5_events
+test_thinking_ai_output
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+env/
+venv/
+gpu_worker_env/
 
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Temporary files
+*.tmp
+*.temp
 
-# Backup files
-*.backup
-*.bak
+# Documentation builds
+/docs/_build/

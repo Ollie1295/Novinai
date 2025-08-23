@@ -4,6 +4,16 @@
 //! psychological profiling, and emergent intelligence capabilities.
 
 pub mod core;
+pub mod api;
+pub mod prediction;
+pub mod reasoning;
+pub mod pipeline;
+pub mod vps_client;
+pub mod thinking;
+pub mod overnight;
+
+// pub mod observability;
+// pub mod config;
 
 #[cfg(test)]
 mod tests;
