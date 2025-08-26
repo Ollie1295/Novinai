@@ -9,6 +9,7 @@ pub mod active_reasoner;
 pub mod decision_counterfactuals;
 pub mod summarizer;
 pub mod llr_integration;
+pub mod llm_client;
 
 // Re-export key types for easy access
 pub use incident_engine::{
@@ -82,7 +83,7 @@ pub struct ThinkingAIResult {
 }
 
 /// Alert decision based on thinking AI analysis with severity levels
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum AlertDecision {
     /// No action needed - threat probability is very low
     Ignore,
@@ -123,6 +124,7 @@ impl AlertDecision {
 }
 
 /// Main thinking AI processor that orchestrates the entire analysis pipeline
+#[derive(Debug, Clone)]
 pub struct ThinkingAIProcessor {
     config: ThinkingAIConfig,
     incident_stores: std::collections::HashMap<String, IncidentStore>,

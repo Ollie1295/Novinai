@@ -3,6 +3,7 @@
 use crate::vps_client::{VpsApiClient, VpsProcessingRequest};
 use crate::thinking::{ThinkingAIProcessor, ThinkingAIConfig, Event, Evidence, LLRExtractor, DemoLLRExtractor};
 use crate::overnight::{OvernightReviewManager, OvernightStorageFactory};
+use crate::image_preloader::{ImagePreloader, Priority, extract_image_url};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,6 +11,8 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use bytes::Bytes;
+use tracing::{info, warn, error};
 
 // Represents the user's subscription tier
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
@@ -44,6 +47,8 @@ pub struct RawEvent {
     pub data: String, // e.g., base64 encoded image or sensor reading
     pub user_id: String,
     pub home_id: String, // Added home_id for thinking AI
+    pub image_url: Option<String>, // Direct image URL for faster processing
+    pub image_data: Option<Bytes>, // Pre-downloaded image data
 }
 
 // An event that has been processed by the pipeline
@@ -67,12 +72,14 @@ pub struct EventPipeline {
     thinking_ai: ThinkingAIProcessor,
     llr_extractor: DemoLLRExtractor,
     overnight_manager: Option<Arc<OvernightReviewManager>>, // NEW: Overnight review manager
+    image_preloader: Arc<ImagePreloader>, // NEW: Image preloader for faster processing
 }
 
 impl EventPipeline {
     pub fn new(config: PipelineConfig, vps_client: VpsApiClient) -> Self {
         let thinking_ai = ThinkingAIProcessor::new(config.thinking_ai_config.clone());
         let llr_extractor = DemoLLRExtractor::default();
+        let image_preloader = Arc::new(ImagePreloader::new());
         
         // Initialize overnight system if enabled
         let overnight_manager = if config.overnight_enabled {
@@ -89,6 +96,7 @@ impl EventPipeline {
             thinking_ai,
             llr_extractor,
             overnight_manager,
+            image_preloader,
         }
     }
 
@@ -100,6 +108,7 @@ impl EventPipeline {
     ) -> Self {
         let thinking_ai = ThinkingAIProcessor::new(config.thinking_ai_config.clone());
         let llr_extractor = DemoLLRExtractor::default();
+        let image_preloader = Arc::new(ImagePreloader::new());
 
         EventPipeline {
             config,
@@ -107,6 +116,7 @@ impl EventPipeline {
             thinking_ai,
             llr_extractor,
             overnight_manager: Some(overnight_manager),
+            image_preloader,
         }
     }
 
@@ -134,6 +144,56 @@ impl EventPipeline {
         }
     }
 
+    /// Process event with immediate image pre-loading
+    pub async fn process_event_with_preload(&self, mut raw_event: RawEvent) -> Result<ProcessedEvent, PipelineError> {
+        info!("Processing event {} with image preload", raw_event.event_id);
+        
+        // Step 1: Start image download immediately if URL present
+        let image_download_task = if raw_event.image_data.is_none() {
+            if let Some(image_url) = raw_event.image_url.as_ref().or_else(|| extract_image_url(&raw_event.data)) {
+                info!("Starting async image download for: {}", image_url);
+                Some(self.image_preloader.download_image_sync(
+                    image_url.clone(), 
+                    raw_event.event_id
+                ))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Step 2: Continue with other processing while image downloads
+        let tier = self.determine_tier(&raw_event.user_id).await?;
+        let processing_level = self.get_processing_level(&tier);
+        
+        // Step 3: Wait for image download to complete
+        if let Some(download_task) = image_download_task {
+            match download_task.await {
+                Ok(image_data) => {
+                    info!("Image downloaded successfully ({} bytes)", image_data.len());
+                    raw_event.image_data = Some(image_data);
+                }
+                Err(e) => {
+                    warn!("Image download failed: {}, continuing without image", e);
+                }
+            }
+        }
+
+        // Step 4: Process with downloaded image data
+        self.process_event_internal(raw_event, tier, processing_level).await
+    }
+
+    /// Preload image in background (fire and forget)
+    pub fn preload_image_background(&self, url: String, event_id: Uuid) {
+        self.image_preloader.preload_image(url, event_id, Priority::Normal);
+    }
+
+    /// Get image preloader statistics
+    pub async fn get_image_cache_stats(&self) -> crate::image_preloader::CacheStats {
+        self.image_preloader.get_cache_stats().await
+    }
+
     // Placeholder method for extracting LLR evidence from raw event
     // TODO: Replace with actual implementation that connects to your LLR models
     fn extract_llr_evidence(&self, _raw_event: &RawEvent) -> Evidence {
@@ -146,6 +206,60 @@ impl EventPipeline {
             llr_presence: 0.2,
             llr_token: 0.0,
         }
+    }
+
+    async fn determine_tier(&self, _user_id: &str) -> Result<SubscriptionTier, PipelineError> {
+        // TODO: Implement actual tier lookup
+        Ok(SubscriptionTier::Standard)
+    }
+
+    async fn process_event_internal(
+        &self, 
+        raw_event: RawEvent, 
+        tier: SubscriptionTier, 
+        processing_level: ProcessingLevel
+    ) -> Result<ProcessedEvent, PipelineError> {
+        // Create VPS processing request with image data
+        let vps_request = VpsProcessingRequest {
+            event_id: raw_event.event_id.to_string(),
+            sensor_data: raw_event.data.clone(),
+            image_data: raw_event.image_data.clone(),
+            processing_level: format!("{:?}", processing_level),
+            user_context: format!("user:{}, home:{}", raw_event.user_id, raw_event.home_id),
+        };
+
+        // Send to VPS for processing
+        let vps_response = self.vps_client.process_event(vps_request).await
+            .map_err(|e| PipelineError::VpsError(format!("VPS processing failed: {}", e)))?;
+
+        // Create thinking AI event
+        let thinking_event = self.create_thinking_event(&raw_event);
+        
+        // Process with thinking AI
+        let thinking_result = self.thinking_ai.process_event(
+            &raw_event.home_id,
+            thinking_event
+        ).await;
+
+        let thinking_analysis = match thinking_result {
+            Ok(analysis) => Some(analysis),
+            Err(e) => {
+                warn!("Thinking AI processing failed: {}", e);
+                None
+            }
+        };
+
+        Ok(ProcessedEvent {
+            original_event_id: raw_event.event_id,
+            processing_timestamp: chrono::Utc::now().timestamp(),
+            tier,
+            processing_level: format!("{:?}", processing_level),
+            vps_job_id: vps_response.job_id,
+            status: "completed".to_string(),
+            result_summary: vps_response.summary,
+            thinking_ai_analysis: thinking_analysis,
+            overnight_suppressed: false,
+        })
     }
 
     // UPDATED: Main event processing method with overnight integration

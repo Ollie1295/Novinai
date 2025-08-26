@@ -1,30 +1,25 @@
 //! Overnight Review System
-//!
-//! This module implements an intelligent overnight monitoring system that:
-//! - Collects events during user-defined overnight hours
-//! - Suppresses immediate alerts during sleep periods
-//! - Generates AI-powered morning summaries
-//! - Provides customizable review periods per home
 
 pub mod config;
 pub mod storage;
 pub mod summary;
-pub mod scheduler;
 pub mod manager;
 
-use chrono::{DateTime, NaiveTime, Utc};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use crate::thinking::AlertDecision;
+// Re-export key types
+pub use manager::{OvernightReviewManager, OvernightEventAnalysis, MorningSummary};
+pub use storage::{OvernightStorageFactory, OvernightStorage};
+pub use summary::SummaryTone;
 
-/// Overnight review configuration for a home
+use chrono::NaiveTime;
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OvernightConfig {
     pub home_id: String,
-    pub review_start_time: NaiveTime, // e.g., 22:00
-    pub review_end_time: NaiveTime,   // e.g., 06:00
-    pub summary_delivery_time: NaiveTime, // e.g., 07:00
-    pub timezone: String, // e.g., "America/New_York"
+    pub review_start_time: NaiveTime,
+    pub review_end_time: NaiveTime,   
+    pub summary_delivery_time: NaiveTime,
+    pub timezone: String,
     pub enabled: bool,
     pub delivery_channels: Vec<DeliveryChannel>,
 }
@@ -33,9 +28,9 @@ impl Default for OvernightConfig {
     fn default() -> Self {
         Self {
             home_id: String::new(),
-            review_start_time: NaiveTime::from_hms_opt(22, 0, 0).unwrap(), // 10 PM
-            review_end_time: NaiveTime::from_hms_opt(6, 0, 0).unwrap(),    // 6 AM
-            summary_delivery_time: NaiveTime::from_hms_opt(7, 0, 0).unwrap(), // 7 AM
+            review_start_time: NaiveTime::from_hms_opt(22, 0, 0).unwrap(),
+            review_end_time: NaiveTime::from_hms_opt(6, 0, 0).unwrap(),
+            summary_delivery_time: NaiveTime::from_hms_opt(7, 0, 0).unwrap(),
             timezone: "UTC".to_string(),
             enabled: true,
             delivery_channels: vec![DeliveryChannel::Push, DeliveryChannel::WebSocket],
@@ -43,20 +38,17 @@ impl Default for OvernightConfig {
     }
 }
 
-/// Available delivery channels for morning summaries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DeliveryChannel {
-    Push,       // Mobile push notification
-    Email,      // Email summary
-    WebSocket,  // Real-time to connected clients
-    SMS,        // Text message
-    Dashboard,  // Web dashboard notification
+    Push,
+    Email,
+    WebSocket,
+    SMS,
+    Dashboard,
 }
 
-/// Result type for overnight review operations
 pub type OvernightResult<T> = anyhow::Result<T>;
 
-/// Errors that can occur in the overnight review system
 #[derive(thiserror::Error, Debug)]
 pub enum OvernightError {
     #[error("Configuration error: {0}")]

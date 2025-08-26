@@ -7,3 +7,4 @@ pub mod auth;
 pub use server::*;
 pub use models::*;
 pub mod database;
+pub mod events;

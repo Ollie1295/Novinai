@@ -1,0 +1,33 @@
+version: "3.9"
+services:
+  deep:
+    build: .
+    container_name: novin_deep_pc_gpu
+    command: ["python", "deep_worker.py"]
+    env_file: .env.pc
+    environment:
+      DEVICE: "cuda"
+      BATCH: "64"                 # start here, then 128 if stable
+      BATCH_WINDOW_MS: "60"
+      MODEL_NAME: "yolov8s-int8-trt"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+    networks:
+      - novin_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; r=redis.from_url('${REDIS_URL}'); r.ping()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  novin_network:
+    driver: bridge

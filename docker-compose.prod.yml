@@ -1,0 +1,388 @@
+version: '3.8'
+
+# Production overrides for docker-compose.yml
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  # API service with production scaling
+  api:
+    build:
+      target: production
+      args:
+        - ENVIRONMENT=production
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - PYTHONOPTIMIZE=2
+      - JWT_SECRET_FILE=/run/secrets/jwt_secret
+      - API_KEY_FILE=/run/secrets/api_key
+    secrets:
+      - jwt_secret
+      - api_key
+    deploy:
+      replicas: 4
+      update_config:
+        parallelism: 2
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+      placement:
+        constraints:
+          - node.role == worker
+
+  # Scheduler with production settings
+  scheduler:
+    build:
+      target: production
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - SCHEDULER_INTERVAL=30
+      - ENABLE_AUTOTHROTTLE=true
+      - AUTOTHROTTLE_THRESHOLD=500
+    deploy:
+      replicas: 1  # Single scheduler instance
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+      placement:
+        constraints:
+          - node.role == manager
+
+  # Deep worker with GPU support
+  deep-worker:
+    build:
+      target: production
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - BATCH_SIZE=10
+      - MAX_BATCH_WAIT_TIME=15
+    deploy:
+      replicas: 6  # Scale based on load
+      update_config:
+        parallelism: 2
+        delay: 30s
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+      placement:
+        constraints:
+          - node.labels.gpu == true
+
+  # Redis with production persistence
+  redis:
+    command: redis-server /etc/redis/redis.conf
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+      placement:
+        constraints:
+          - node.labels.storage == ssd
+
+  # Prometheus with production configuration
+  prometheus:
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=90d'
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--web.external-url=https://prometheus.insane.ai'
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+      placement:
+        constraints:
+          - node.labels.monitoring == true
+
+  # Grafana with production security
+  grafana:
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD_FILE=/run/secrets/grafana_password
+      - GF_SECURITY_SECRET_KEY_FILE=/run/secrets/grafana_secret
+      - GF_SERVER_DOMAIN=grafana.insane.ai
+      - GF_SERVER_ROOT_URL=https://grafana.insane.ai
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=postgres:5432
+      - GF_DATABASE_NAME=grafana
+      - GF_DATABASE_USER=grafana
+      - GF_DATABASE_PASSWORD_FILE=/run/secrets/grafana_db_password
+      - GF_SESSION_PROVIDER=redis
+      - GF_SESSION_PROVIDER_CONFIG=addr=redis:6379,pool_size=100
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    secrets:
+      - grafana_password
+      - grafana_secret
+      - grafana_db_password
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Nginx with SSL and production security
+  nginx:
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_logs:/var/log/nginx
+      - ./ssl/certs:/etc/ssl/certs:ro
+      - ./ssl/private:/etc/ssl/private:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+      placement:
+        constraints:
+          - node.role == worker
+
+  # PostgreSQL for production (if needed)
+  postgres:
+    image: postgres:15-alpine
+    container_name: insane-ai-postgres
+    environment:
+      - POSTGRES_DB=insane_ai_prod
+      - POSTGRES_USER=insane_ai
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    secrets:
+      - postgres_password
+    ports:
+      - "5432:5432"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+      placement:
+        constraints:
+          - node.labels.database == true
+    networks:
+      - insane-ai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U insane_ai -d insane_ai_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Alertmanager for production alerts
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    container_name: insane-ai-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - alertmanager_data:/alertmanager
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=https://alerts.insane.ai'
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - insane-ai-network
+
+  # Log aggregation with Loki
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: insane-ai-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./monitoring/loki.yml:/etc/loki/loki.yml:ro
+    command: -config.file=/etc/loki/loki.yml
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    networks:
+      - insane-ai-network
+
+  # Log collection with Promtail
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: insane-ai-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/promtail.yml:/etc/promtail/promtail.yml:ro
+      - api_logs:/var/log/insane-ai/api:ro
+      - scheduler_logs:/var/log/insane-ai/scheduler:ro
+      - worker_logs:/var/log/insane-ai/worker:ro
+    command: -config.file=/etc/promtail/promtail.yml
+    deploy:
+      mode: global  # Deploy on every node
+      restart_policy:
+        condition: on-failure
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    networks:
+      - insane-ai-network
+
+  # Watchtower with production settings
+  watchtower:
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 3 * * *  # Daily at 3 AM
+      - WATCHTOWER_NOTIFICATIONS=slack
+      - WATCHTOWER_NOTIFICATION_SLACK_HOOK_URL_FILE=/run/secrets/slack_webhook
+      - WATCHTOWER_NOTIFICATION_TEMPLATE={{range .}}{{.Time.Format "2006-01-02 15:04:05"}} ({{.Level}}): {{.Message}}{{println}}{{end}}
+    secrets:
+      - slack_webhook
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+# Production volumes with specific drivers
+volumes:
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/redis
+  
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/postgres
+  
+  prometheus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/prometheus
+  
+  grafana_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/grafana
+  
+  alertmanager_data:
+    driver: local
+  
+  loki_data:
+    driver: local
+
+# Production secrets
+secrets:
+  jwt_secret:
+    external: true
+    name: insane_ai_jwt_secret
+  
+  api_key:
+    external: true
+    name: insane_ai_api_key
+  
+  grafana_password:
+    external: true
+    name: insane_ai_grafana_password
+  
+  grafana_secret:
+    external: true
+    name: insane_ai_grafana_secret
+  
+  grafana_db_password:
+    external: true
+    name: insane_ai_grafana_db_password
+  
+  postgres_password:
+    external: true
+    name: insane_ai_postgres_password
+  
+  slack_webhook:
+    external: true
+    name: insane_ai_slack_webhook

@@ -2,6 +2,7 @@
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use bytes::Bytes;
 use std::error::Error;
 
 // Represents the response from the VPS API for a processing request
@@ -15,11 +16,13 @@ pub struct VpsProcessingResponse {
 
 // Represents the payload for a processing request
 #[derive(Serialize, Deserialize, Debug)]
-pub struct VpsProcessingRequest<'a> {
-    pub api_key: &'a str,
-    pub event_id: &'a str,
-    pub sensor_data: &'a str, // Base64 encoded sensor data
-    pub processing_level: &'a str, // e.g., "basic", "advanced", "priority"
+pub struct VpsProcessingRequest {
+    pub event_id: String,
+    pub sensor_data: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_data: Option<Bytes>, // Pre-downloaded image data
+    pub processing_level: String,
+    pub user_context: String,
 }
 
 // A client for interacting with the real VPS API
@@ -39,9 +42,9 @@ impl VpsApiClient {
     }
 
     // Submits an event for processing to the VPS
-    pub async fn submit_event_for_processing<'a>(
+    pub async fn process_event(
         &self,
-        request: &VpsProcessingRequest<'a>,
+        request: VpsProcessingRequest,
     ) -> Result<VpsProcessingResponse, Box<dyn Error>> {
         let url = format!("{}/v1/process", self.api_base_url);
         

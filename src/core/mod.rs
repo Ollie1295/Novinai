@@ -212,7 +212,7 @@ impl InsaneSecuritySystem {
     /// Guardian Mode: Active protection with visible deterrence
     fn process_guardian_mode(&self, context: &ThreatContext) -> ThreatAssessment {
         let base_threat = self.calculate_base_threat(context);
-        let enhanced_threat = base_threat * 1.2; // More aggressive in Guardian mode
+        let enhanced_threat = base_threat * 1.05; // Slightly more vigilant, not paranoid
         
         ThreatAssessment {
             entity_id: context.entity_id,
@@ -239,7 +239,7 @@ impl InsaneSecuritySystem {
     /// Stealth Mode: Covert monitoring with minimal detection
     fn process_stealth_mode(&self, context: &ThreatContext) -> ThreatAssessment {
         let base_threat = self.calculate_base_threat(context);
-        let stealth_threat = base_threat * 0.8; // More conservative to avoid detection
+        let stealth_threat = base_threat * 0.9; // Conservative but not overly suppressed
         
         ThreatAssessment {
             entity_id: context.entity_id,
@@ -296,7 +296,14 @@ impl InsaneSecuritySystem {
         for (_, value) in &context.threat_indicators {
             threat_score += value;
         }
-        (threat_score / context.threat_indicators.len() as f64).min(1.0)
+        let base = (threat_score / context.threat_indicators.len() as f64).min(1.0);
+        
+        // Apply contextual intelligence instead of paranoid defaults
+        if base > 0.5 {
+            base // Keep high threats high
+        } else {
+            base * 0.3 // Reduce paranoia for moderate/low indicators
+        }
     }
 
     fn calculate_perimeter_threat(&self, context: &ThreatContext, base_threat: f64) -> f64 {
@@ -311,11 +318,17 @@ impl InsaneSecuritySystem {
         (base_threat * perimeter_multiplier).min(1.0)
     }
 
-    fn build_psychological_profile(&self, _context: &ThreatContext) -> PsychologicalProfile {
+    fn build_psychological_profile(&self, context: &ThreatContext) -> PsychologicalProfile {
         let mut profile = HashMap::new();
-        profile.insert("aggression_level".to_string(), 0.3);
-        profile.insert("intent_clarity".to_string(), 0.6);
-        profile.insert("stress_indicators".to_string(), 0.4);
+        
+        // Use context-aware profiling instead of hardcoded values
+        let base_aggression = context.threat_indicators.get("aggressive_behavior").unwrap_or(&0.1);
+        let base_intent = context.threat_indicators.get("clear_intent").unwrap_or(&0.3);
+        let base_stress = context.threat_indicators.get("stress_indicators").unwrap_or(&0.2);
+        
+        profile.insert("aggression_level".to_string(), *base_aggression);
+        profile.insert("intent_clarity".to_string(), *base_intent);
+        profile.insert("stress_indicators".to_string(), *base_stress);
         profile
     }
 
@@ -327,11 +340,17 @@ impl InsaneSecuritySystem {
         profile
     }
 
-    fn analyze_behavior_patterns(&self, _context: &ThreatContext) -> BehaviorIndicators {
+    fn analyze_behavior_patterns(&self, context: &ThreatContext) -> BehaviorIndicators {
         let mut indicators = HashMap::new();
-        indicators.insert("movement_speed".to_string(), 0.5);
-        indicators.insert("direction_changes".to_string(), 0.3);
-        indicators.insert("attention_focus".to_string(), 0.7);
+        
+        // Use actual context data instead of hardcoded values
+        let movement = context.threat_indicators.get("movement_speed").unwrap_or(&0.2);
+        let direction = context.threat_indicators.get("direction_changes").unwrap_or(&0.1);
+        let attention = context.threat_indicators.get("attention_focus").unwrap_or(&0.3);
+        
+        indicators.insert("movement_speed".to_string(), *movement);
+        indicators.insert("direction_changes".to_string(), *direction);
+        indicators.insert("attention_focus".to_string(), *attention);
         indicators
     }
 

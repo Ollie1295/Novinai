@@ -1,0 +1,28 @@
+version: "3.9"
+services:
+  novin_deep_pc:
+    build: .
+    container_name: novin_deep_pc
+    env_file:
+      - .env.pc
+    environment:
+      - REDIS_URL=${REDIS_URL:-redis://:novin_redis_2024@95.179.193.224:6379/0}
+      - PG_DSN=${PG_DSN:-postgres://novin:novin@100.85.81.109:5432/novin}
+      - DEVICE=cpu
+      - BATCH=8
+      - BATCH_WINDOW_MS=120
+      - MODEL_NAME=yolov8n-int8
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - novin_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; r=redis.from_url('${REDIS_URL}'); r.ping()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  novin_network:
+    driver: bridge

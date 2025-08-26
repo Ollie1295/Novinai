@@ -7,11 +7,17 @@ edition = "2021"
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", features = ["json", "stream"] }
+bytes = "1.0"
+futures-util = "0.3"
+moka = { version = "0.12", features = ["future"] }
+dashmap = "5.5"
+url = "2.4"
 anyhow = "1.0"
 thiserror = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.8"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 ndarray = "0.15"
@@ -23,6 +29,13 @@ serde_yaml = "0.9"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "sqlite", "chrono", "uuid", "migrate"] }
 jsonwebtoken = "9.2"
 bcrypt = "0.15"
+dotenv = "0.15"
+argon2 = "0.5"
+async-trait = "0.1"
+lettre = "0.11"
+fcm = "0.9"
+aws-sdk-sns = "1.0"
+multipart = "0.18"
 
 [[bin]]
 name = "security-daemon"
@@ -65,7 +78,6 @@ strip = true
 [[bin]]
 name = "simple-evening-test"
 path = "src/bin/simple_evening_test.rs"
-
 
 [[bin]]
 name = "thinking_ai_demo"
@@ -114,7 +126,47 @@ path = "src/bin/alert_severity_test.rs"
 [[bin]]
 name = "api_server"
 path = "src/bin/api_server.rs"
-dotenv = "0.15"
-argon2 = "0.5"
-chrono-tz = "0.8"
-async-trait = "0.1"
+
+[[bin]]
+name = "api_server_with_events"
+path = "src/bin/api_server_with_events.rs"
+
+[[bin]]
+name = "pipeline_test"
+path = "src/bin/pipeline_test.rs"
+
+[[bin]]
+name = "vigorous_pipeline_test"
+path = "src/bin/vigorous_pipeline_test.rs"
+
+[[bin]]
+name = "vigorous_test"
+path = "src/bin/vigorous_pipeline_test_fixed.rs"
+
+[[bin]]
+name = "daytime_ai_test"
+path = "src/bin/daytime_ai_test.rs"
+
+[[bin]]
+name = "pure_ai_test"
+path = "src/bin/pure_ai_reasoning_test.rs"
+
+[[bin]]
+name = "debug_ai"
+path = "src/bin/debug_ai_reasoning.rs"
+
+[[bin]]
+name = "debug_capping"
+path = "src/bin/debug_capping.rs"
+
+[[bin]]
+name = "proper_pipeline_test"
+path = "src/bin/proper_pipeline_test.rs"
+
+[[bin]]
+name = "mock_vps_test"
+path = "src/bin/mock_vps_pipeline_test.rs"
+
+[[bin]]
+name = "fixed_evidence_test"
+path = "src/bin/fixed_evidence_test.rs"

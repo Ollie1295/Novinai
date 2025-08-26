@@ -6,11 +6,12 @@
 pub mod core;
 pub mod api;
 pub mod prediction;
-pub mod reasoning;
+pub mod core;
 pub mod pipeline;
 pub mod vps_client;
 pub mod thinking;
 pub mod overnight;
+pub mod image_preloader;
 
 // pub mod observability;
 // pub mod config;

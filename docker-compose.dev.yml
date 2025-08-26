@@ -1,0 +1,162 @@
+version: '3.8'
+
+# Development overrides for docker-compose.yml
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # API service with development features
+  api:
+    build:
+      target: development
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - HOT_RELOAD=true
+    volumes:
+      - ./backend:/app:rw
+      - ./backend/logs:/app/logs:rw
+    ports:
+      - "8000:8000"
+      - "8001:8001"  # Debug port
+    command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
+    deploy:
+      replicas: 1  # Single instance for development
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  # Scheduler with debug logging
+  scheduler:
+    build:
+      target: development
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - SCHEDULER_INTERVAL=10  # Faster scheduling for development
+    volumes:
+      - ./backend:/app:rw
+      - ./backend/logs:/app/logs:rw
+
+  # Deep worker with debug mode
+  deep-worker:
+    build:
+      target: development
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - BATCH_SIZE=2  # Smaller batches for development
+    volumes:
+      - ./backend:/app:rw
+      - ./backend/logs:/app/logs:rw
+    deploy:
+      replicas: 1  # Single worker for development
+
+  # Redis with development settings
+  redis:
+    ports:
+      - "6379:6379"  # Expose Redis for direct access
+    command: redis-server --appendonly yes --appendfsync everysec
+    # No persistence config for development
+
+  # Development database (if needed)
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: insane-ai-postgres-dev
+    environment:
+      - POSTGRES_DB=insane_ai_dev
+      - POSTGRES_USER=insane_ai
+      - POSTGRES_PASSWORD=dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - insane-ai-network
+
+  # Prometheus with shorter retention for development
+  prometheus:
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'  # Shorter retention
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+
+  # Grafana with development settings
+  grafana:
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=redis-datasource
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+
+  # Nginx with development configuration
+  nginx:
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_logs:/var/log/nginx
+    ports:
+      - "80:80"
+      # No HTTPS in development
+
+  # Remove Watchtower in development
+  watchtower:
+    profiles: ["production-only"]
+
+# Development tools
+  # Redis Commander - Redis GUI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: insane-ai-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - insane-ai-network
+
+  # Mailhog - Email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: insane-ai-mailhog
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP
+    networks:
+      - insane-ai-network
+
+  # Development load tester
+  load-tester:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: insane-ai-load-tester
+    environment:
+      - ENVIRONMENT=development
+      - API_BASE_URL=http://api:8000
+    volumes:
+      - ./backend:/app:rw
+      - ./load_test_results:/app/results:rw
+    command: ["python", "-m", "services.load_testing"]
+    depends_on:
+      - api
+    networks:
+      - insane-ai-network
+    profiles: ["load-test"]
+
+volumes:
+  postgres_dev_data:
+    driver: local
