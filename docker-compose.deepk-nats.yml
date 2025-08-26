@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # NATS JetStream - Event Fabric
+  nats:
+    image: nats:2.10
+    container_name: deepk-nats
+    command: ["-js", "-sd", "/data", "-p", "4222", "-m", "8222"]
+    ports:
+      - "4222:4222"  # NATS client connections
+      - "8222:8222"  # NATS monitoring/management UI
+    volumes:
+      - nats_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nats", "server", "check"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # NATS Stream Setup (runs once to create streams)
+  nats-setup:
+    image: natsio/nats-box:latest
+    container_name: deepk-nats-setup
+    depends_on:
+      nats:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '🚀 Setting up NATS JetStream streams...' &&
+        
+        nats stream add PERCEPTION 
+          --subjects 'events.perception.*' 
+          --storage file 
+          --retention limits 
+          --max-bytes 2GB 
+          --max-age 48h 
+          --replicas 1 &&
+        
+        nats stream add DEEPK 
+          --subjects 'deepk.alerts.*' 
+          --storage file 
+          --retention limits 
+          --max-bytes 2GB 
+          --max-age 48h 
+          --replicas 1 &&
+        
+        nats stream add LITEBRAIN 
+          --subjects 'litebrain.alerts.*' 
+          --storage file 
+          --retention limits 
+          --max-bytes 1GB 
+          --max-age 24h 
+          --replicas 1 &&
+        
+        echo '✅ NATS JetStream streams created successfully!' &&
+        nats stream report
+      "
+    environment:
+      - NATS_URL=nats://nats:4222
+    restart: "no"
+
+  # Deep-K AI Service (your Rust binary)
+  deepk:
+    build:
+      context: .
+      dockerfile: Dockerfile.deepk
+    container_name: deepk-ai
+    depends_on:
+      nats:
+        condition: service_healthy
+      nats-setup:
+        condition: service_completed_successfully
+    environment:
+      - DEEPK_NATS_URL=nats://nats:4222
+      - DEEPK_IN_SUBJECT=events.perception.*
+      - DEEPK_OUT_SUBJECT=deepk.alerts.main
+      - RUST_LOG=info
+      - TOKIO_WORKER_THREADS=4
+      - RUST_BACKTRACE=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "pgrep -f pipeline > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # HTTP to NATS Sidecar (optional - for existing HTTP integrations)
+  http-to-nats:
+    build:
+      context: .
+      dockerfile: Dockerfile.sidecar
+    container_name: deepk-http-sidecar
+    depends_on:
+      nats:
+        condition: service_healthy
+    ports:
+      - "8080:8080"  # HTTP endpoint for LiteBrain integration
+    environment:
+      - NATS_URL=nats://nats:4222
+      - HTTP_PORT=8080
+      - RUST_LOG=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # NATS Monitoring & Testing
+  nats-monitor:
+    image: natsio/nats-box:latest
+    container_name: deepk-nats-monitor
+    depends_on:
+      nats:
+        condition: service_healthy
+    environment:
+      - NATS_URL=nats://nats:4222
+    command: >
+      sh -c "
+        echo '📊 NATS Monitoring Dashboard' &&
+        echo 'Access NATS UI at: http://localhost:8222' &&
+        echo '' &&
+        echo '🔧 Useful commands:' &&
+        echo '  docker exec deepk-nats-monitor nats stream report' &&
+        echo '  docker exec deepk-nats-monitor nats sub \"deepk.alerts.*\"' &&
+        echo '  docker exec deepk-nats-monitor nats pub events.perception.test \"{\\\"test\\\":true}\"' &&
+        echo '' &&
+        tail -f /dev/null
+      "
+    restart: unless-stopped
+
+volumes:
+  nats_data:
+    driver: local
+
+networks:
+  default:
+    name: deepk-network

@@ -1,0 +1,71 @@
+# Deep-K AI Dockerfile
+# Multi-stage build for optimized production container
+
+# Build stage
+FROM rust:1.75 AS builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy Cargo files first for better layer caching
+COPY Cargo.toml Cargo.lock ./
+
+# Copy source code
+COPY src/ src/
+COPY examples/ examples/ 2>/dev/null || true
+
+# Build with optimizations
+RUN cargo build --release --locked
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -r -m -u 1001 -s /bin/bash deepk
+
+# Create app directory
+WORKDIR /opt/deepk
+
+# Copy built binaries from builder stage
+COPY --from=builder /app/target/release/pipeline /opt/deepk/bin/pipeline
+COPY --from=builder /app/target/release/thinking_ai_demo /opt/deepk/bin/thinking_ai_demo
+COPY --from=builder /app/target/release/daemon /opt/deepk/bin/daemon
+COPY --from=builder /app/target/release/security-daemon /opt/deepk/bin/security-daemon
+
+# Make binaries executable
+RUN chmod +x /opt/deepk/bin/*
+
+# Set ownership
+RUN chown -R deepk:deepk /opt/deepk
+
+# Switch to non-root user
+USER deepk
+
+# Environment variables for NATS integration
+ENV DEEPK_NATS_URL=nats://nats:4222
+ENV DEEPK_IN_SUBJECT=events.perception.*
+ENV DEEPK_OUT_SUBJECT=deepk.alerts.main
+ENV RUST_LOG=info
+ENV RUST_BACKTRACE=1
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD pgrep -f pipeline > /dev/null || exit 1
+
+# Default command (can be overridden)
+CMD ["/opt/deepk/bin/pipeline"]
