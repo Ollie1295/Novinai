@@ -42,10 +42,13 @@ RUN useradd -r -m -u 1001 -s /bin/bash deepk
 WORKDIR /opt/deepk
 
 # Copy built binaries from builder stage
-COPY --from=builder /app/target/release/pipeline /opt/deepk/bin/pipeline
-COPY --from=builder /app/target/release/thinking_ai_demo /opt/deepk/bin/thinking_ai_demo
-COPY --from=builder /app/target/release/daemon /opt/deepk/bin/daemon
-COPY --from=builder /app/target/release/security-daemon /opt/deepk/bin/security-daemon
+RUN mkdir -p /opt/deepk/bin
+COPY --from=builder /app/target/release/ /opt/deepk/bin/
+
+# List available binaries
+RUN ls -la /opt/deepk/bin/ && \
+    echo "Available binaries:" && \
+    find /opt/deepk/bin/ -maxdepth 1 -type f -executable
 
 # Make binaries executable
 RUN chmod +x /opt/deepk/bin/*

@@ -36,6 +36,7 @@ lettre = "0.11"
 fcm = "0.9"
 aws-sdk-sns = "1.0"
 multipart = "0.18"
+async-nats = "0.33"
 
 [[bin]]
 name = "security-daemon"
@@ -170,3 +171,7 @@ path = "src/bin/mock_vps_pipeline_test.rs"
 [[bin]]
 name = "fixed_evidence_test"
 path = "src/bin/fixed_evidence_test.rs"
+
+[[bin]]
+name = "http_to_nats_sidecar"
+path = "src/bin/http_to_nats_sidecar.rs"

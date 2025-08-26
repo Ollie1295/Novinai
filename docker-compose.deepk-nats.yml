@@ -87,7 +87,7 @@ services:
       retries: 3
       start_period: 30s
 
-  # HTTP to NATS Sidecar (optional - for existing HTTP integrations)
+  # HTTP to NATS Sidecar - Bridge for existing HTTP integrations
   http-to-nats:
     build:
       context: .
@@ -96,6 +96,8 @@ services:
     depends_on:
       nats:
         condition: service_healthy
+      nats-setup:
+        condition: service_completed_successfully
     ports:
       - "8080:8080"  # HTTP endpoint for LiteBrain integration
     environment:

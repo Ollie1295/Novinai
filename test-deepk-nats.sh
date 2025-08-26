@@ -32,13 +32,17 @@ echo ""
 echo "🔍 Checking NATS JetStream status..."
 
 # Check if NATS container is running
-if ! docker ps | grep -q nats; then
-    echo "❌ NATS container not running. Starting..."
-    docker start nats || {
-        echo "❌ Failed to start NATS. Run deploy-deepk-nats.sh first."
+if ! docker ps | grep -q deepk-nats; then
+    echo "❌ NATS container not running. Starting stack..."
+    if [[ -f "docker-compose.deepk-nats.yml" ]]; then
+        echo "🐳 Starting Deep-K NATS stack..."
+        docker compose -f docker-compose.deepk-nats.yml up -d nats
+        sleep 5
+    else
+        echo "❌ Neither NATS container nor docker-compose.deepk-nats.yml found."
+        echo "💡 Run ./start-deepk-nats.sh first."
         exit 1
     }
-    sleep 3
 fi
 
 echo "✅ NATS container is running"
